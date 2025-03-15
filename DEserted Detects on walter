@@ -3,9 +3,9 @@ local Rayfield = loadstring(game:HttpGet("https://raw.githubusercontent.com/Rayf
 
 -- Create Rayfield Window
 local window = Rayfield:CreateWindow({
-    Name = "Desert Detectors Script",
-    LoadingTitle = "Being a dick...",
-    LoadingSubtitle = "wait",
+    Name = "Deserted Script",
+    LoadingTitle = "Loading...",
+    LoadingSubtitle = "Please wait",
     ConfigurationSaving = {
         Enabled = true,
         FolderName = nil, -- Leave it as nil if you don't want to use a folder
@@ -16,8 +16,8 @@ local window = Rayfield:CreateWindow({
         Invite = "discord.gg/yourdiscordinvite",
         RememberJoins = true,
     },
-    KeySystem = True,
-    Key = "Tasmaniandevilscookfr",
+    KeySystem = true,
+    Key = "Tasmanian",
 })
 
 -- Create tabs
@@ -26,159 +26,108 @@ local desertDetectorsTab = window:CreateTab("Desert Detectors", 4483362458) -- N
 local creditsTab = window:CreateTab("Credits", 4483362458) -- Credits tab
 local linksTab = window:CreateTab("Links", 4483362458) -- Links tab
 
--- Flight-related Variables
-local flying = false
-local bodyVelocity = nil
-local bodyGyro = nil
-local camera = game:GetService("Workspace").CurrentCamera
-local userInputService = game:GetService("UserInputService")
-local player = game:GetService("Players").LocalPlayer
-local speed = 50
-local gravity = 196.2
-local hoverMode = false
-local speedBoostActive = false
-local walkFlingActive = false
-local flingIntensity = 50
+-- Function to detect and draw ESP for collectable items
+local function drawESP(item)
+    if item and item:FindFirstChild("HumanoidRootPart") then
+        local itemPosition = item.HumanoidRootPart.Position
+        local screenPosition, onScreen = game:GetService("Workspace").CurrentCamera:WorldToScreenPoint(itemPosition)
 
--- Function to start flying
-local function startFlying()
-    local character = player.Character
-    if character and character:FindFirstChild("HumanoidRootPart") then
-        -- Add BodyVelocity for movement
-        bodyVelocity = Instance.new("BodyVelocity")
-        bodyVelocity.MaxForce = Vector3.new(10000, 10000, 10000)
-        bodyVelocity.Velocity = Vector3.new(0, 0, 0)
-        bodyVelocity.Parent = character.HumanoidRootPart
-        
-        -- Add BodyGyro to keep the character's orientation
-        bodyGyro = Instance.new("BodyGyro")
-        bodyGyro.MaxTorque = Vector3.new(400000, 400000, 400000)
-        bodyGyro.CFrame = character.HumanoidRootPart.CFrame
-        bodyGyro.Parent = character.HumanoidRootPart
-        
-        -- Set the character to fly
-        flying = true
+        if onScreen then
+            -- Drawing the ESP Box
+            local espBox = Instance.new("Frame")
+            espBox.Size = UDim2.new(0, 100, 0, 100)
+            espBox.Position = UDim2.new(0, screenPosition.X - 50, 0, screenPosition.Y - 50)
+            espBox.BackgroundColor3 = Color3.fromRGB(255, 0, 0)  -- Red box
+            espBox.BorderSizePixel = 0
+            espBox.Parent = game.CoreGui
+
+            -- Get the actual name of the collectible item
+            local itemName = item:FindFirstChild("Name") and item.Name or "Unknown"
+
+            -- Displaying the name above the item
+            local nameLabel = Instance.new("TextLabel")
+            nameLabel.Text = itemName
+            nameLabel.Position = UDim2.new(0, screenPosition.X - 50, 0, screenPosition.Y - 75)
+            nameLabel.Size = UDim2.new(0, 100, 0, 30)
+            nameLabel.BackgroundTransparency = 1
+            nameLabel.TextColor3 = Color3.fromRGB(255, 255, 255)
+            nameLabel.TextStrokeTransparency = 0.5
+            nameLabel.TextScaled = true
+            nameLabel.Parent = game.CoreGui
+        end
     end
 end
 
--- Function to stop flying
-local function stopFlying()
-    if bodyVelocity then
-        bodyVelocity:Destroy()
-        bodyVelocity = nil
-    end
-    if bodyGyro then
-        bodyGyro:Destroy()
-        bodyGyro = nil
-    end
-    flying = false
-end
-
--- Update flying movement based on mouse position and WASD keys
-local function updateFlight()
-    if flying then
-        local character = player.Character
-        if not character or not character:FindFirstChild("HumanoidRootPart") then return end
-
-        -- Calculate direction based on mouse position
-        local mousePos = game:GetService("Players").LocalPlayer:GetMouse().Hit.p
-        local humanoidRootPart = character.HumanoidRootPart
-        local directionToMouse = (mousePos - humanoidRootPart.Position).unit
-
-        -- Get the player's input for WASD controls
-        local moveDirection = Vector3.new(0, 0, 0)
-        if userInputService:IsKeyDown(Enum.KeyCode.W) then
-            moveDirection = moveDirection + humanoidRootPart.CFrame.LookVector
+-- Function to detect and filter collectable items based on their properties
+local function detectCollectables()
+    for _, item in pairs(game:GetService("Workspace"):GetChildren()) do
+        if item:IsA("Model") and item:FindFirstChild("HumanoidRootPart") then
+            if item.Name:match("Jet") or item.Name:match("Tank") or item.Name:match("Weapon") then
+                drawESP(item)
+            end
         end
-        if userInputService:IsKeyDown(Enum.KeyCode.S) then
-            moveDirection = moveDirection - humanoidRootPart.CFrame.LookVector
-        end
-        if userInputService:IsKeyDown(Enum.KeyCode.A) then
-            moveDirection = moveDirection - humanoidRootPart.CFrame.RightVector
-        end
-        if userInputService:IsKeyDown(Enum.KeyCode.D) then
-            moveDirection = moveDirection + humanoidRootPart.CFrame.RightVector
-        end
-
-        -- Hover mode: Stop upward/downward movement if hover mode is active
-        if hoverMode then
-            moveDirection = Vector3.new(moveDirection.X, 0, moveDirection.Z)
-        end
-
-        -- Speed boost: Increase speed if active
-        local currentSpeed = speedBoostActive and speed * 1.5 or speed
-
-        -- Update velocity based on mouse and WASD input
-        direction = (directionToMouse + moveDirection).unit * currentSpeed
-        bodyVelocity.Velocity = direction
-
-        -- Keep the character upright with BodyGyro
-        bodyGyro.CFrame = CFrame.new(humanoidRootPart.Position, mousePos)
-
-        -- Adjust gravity
-        game:GetService("Workspace").Gravity = gravity
     end
 end
 
--- Walk Fling: Vibrate the player very fast
+-- Loop to continuously check for collectable items
+local espLoop = game:GetService("RunService").Heartbeat:Connect(function()
+    detectCollectables()
+end)
+
+-- Walk Fling Feature
 local function walkFling()
-    local character = player.Character
-    if character and character:FindFirstChild("HumanoidRootPart") then
-        local humanoidRootPart = character.HumanoidRootPart
-        while walkFlingActive do
-            -- Apply random vibrations in all directions
-            local randomDirection = Vector3.new(
-                math.random(-flingIntensity, flingIntensity),
-                math.random(-flingIntensity, flingIntensity),
-                math.random(-flingIntensity, flingIntensity)
-            )
-            bodyVelocity.Velocity = randomDirection
-            wait(0.05)  -- Adjust the speed of the vibration
+    local character = game.Players.LocalPlayer.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+    local humanoid = character:FindFirstChild("Humanoid")
+    if humanoid then
+        while wait() do
+            humanoid:Move(Vector3.new(math.random(-10, 10), 0, math.random(-10, 10)))
         end
     end
 end
 
--- Main Tab (Flight Controls)
-local mainSection = mainTab:CreateSection("Flight Controls")
-mainSection:CreateToggle("Enable Fly", function(state)
-    if state then
-        startFlying()
-    else
-        stopFlying()
+-- Fly Feature
+local function fly()
+    local character = game.Players.LocalPlayer.Character
+    if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+    local humanoidRootPart = character:FindFirstChild("HumanoidRootPart")
+    local flying = true
+
+    local bodyVelocity = Instance.new("BodyVelocity")
+    bodyVelocity.MaxForce = Vector3.new(100000, 100000, 100000)
+    bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+    bodyVelocity.Parent = humanoidRootPart
+
+    local function updateFly()
+        if flying then
+            local mouse = game.Players.LocalPlayer:GetMouse()
+            local targetPos = mouse.Hit.p
+            bodyVelocity.Velocity = (targetPos - humanoidRootPart.Position).unit * 100
+        else
+            bodyVelocity:Destroy()
+        end
     end
-end)
 
-mainSection:CreateToggle("Enable Hover Mode", function(state)
-    hoverMode = state
-end)
+    game:GetService("RunService").Heartbeat:Connect(updateFly)
+end
 
-mainSection:CreateToggle("Speed Boost", function(state)
-    speedBoostActive = state
-end)
+-- Gravity Control Feature
+local function changeGravity(value)
+    game:GetService("Workspace").Gravity = value
+end
 
-mainSection:CreateSlider("Gravity Control", 10, 200, 196.2, 1, function(value)
-    gravity = value
-end)
-
-mainSection:CreateToggle("Infinite Jump", function(state)
-    local humanoid = player.Character and player.Character:FindFirstChild("Humanoid")
-    if humanoid then
-        humanoid.JumpHeight = state and 50 or 16
+-- Walk Speed Feature
+local function changeWalkSpeed(speed)
+    local character = game.Players.LocalPlayer.Character
+    if character then
+        local humanoid = character:FindFirstChildOfClass("Humanoid")
+        if humanoid then
+            humanoid.WalkSpeed = speed
+        end
     end
-end)
+end
 
-mainSection:CreateToggle("Walk Fling", function(state)
-    walkFlingActive = state
-    if state then
-        walkFling()  -- Start vibrating the character if Walk Fling is enabled
-    end
-end)
-
-mainSection:CreateSlider("Walk Fling Intensity", 10, 100, 50, 1, function(value)
-    flingIntensity = value
-end)
-
--- Desert Detectors Tab (Infinite Money Button)
+-- Desert Detectors Tab (Infinite Money Button & Links)
 local desertSection = desertDetectorsTab:CreateSection("Desert Detectors")
 
 desertSection:CreateButton("Enable Infinite Money", function()
@@ -217,6 +166,25 @@ desertSection:CreateButton("Enable Infinite Money", function()
     end
 end)
 
+-- Desert Detectors: Walk Fling, Fly, Gravity, Walk Speed
+local movementSection = desertDetectorsTab:CreateSection("Movement Features")
+
+movementSection:CreateButton("Walk Fling", function()
+    walkFling()
+end)
+
+movementSection:CreateButton("Fly", function()
+    fly()
+end)
+
+movementSection:CreateSlider("Gravity", 0, 500, 196.2, function(value)
+    changeGravity(value)
+end)
+
+movementSection:CreateSlider("Walk Speed", 0, 500, 16, function(value)
+    changeWalkSpeed(value)
+end)
+
 -- Links Tab (With Buttons for copying URLs)
 local linksSection = linksTab:CreateSection("Links")
 linksSection:CreateButton("Discord Group", function()
@@ -234,9 +202,6 @@ end)
 -- Credits Tab
 local creditsSection = creditsTab:CreateSection("Credits")
 creditsSection:CreateLabel("Credits: TGMANKASKE")
-
--- Run the flight update loop
-game:GetService("RunService").Heartbeat:Connect(updateFlight)
 
 -- Initialize the window
 window:Initialize()
