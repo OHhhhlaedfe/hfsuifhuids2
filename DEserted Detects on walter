@@ -1,0 +1,242 @@
+-- Load Rayfield Library
+local Rayfield = loadstring(game:HttpGet("https://raw.githubusercontent.com/RayfieldDev/Rayfield/main/Source/Library.lua"))()
+
+-- Create Rayfield Window
+local window = Rayfield:CreateWindow({
+    Name = "Desert Detectors Script",
+    LoadingTitle = "Being a dick...",
+    LoadingSubtitle = "wait",
+    ConfigurationSaving = {
+        Enabled = true,
+        FolderName = nil, -- Leave it as nil if you don't want to use a folder
+        FileName = "TGMANKASKEConfig"
+    },
+    Discord = {
+        Enabled = false,
+        Invite = "discord.gg/yourdiscordinvite",
+        RememberJoins = true,
+    },
+    KeySystem = True,
+    Key = "Tasmaniandevilscookfr",
+})
+
+-- Create tabs
+local mainTab = window:CreateTab("Main", 4483362458) -- Main tab with advanced flight and other features
+local desertDetectorsTab = window:CreateTab("Desert Detectors", 4483362458) -- New tab for Infinite Money and Links
+local creditsTab = window:CreateTab("Credits", 4483362458) -- Credits tab
+local linksTab = window:CreateTab("Links", 4483362458) -- Links tab
+
+-- Flight-related Variables
+local flying = false
+local bodyVelocity = nil
+local bodyGyro = nil
+local camera = game:GetService("Workspace").CurrentCamera
+local userInputService = game:GetService("UserInputService")
+local player = game:GetService("Players").LocalPlayer
+local speed = 50
+local gravity = 196.2
+local hoverMode = false
+local speedBoostActive = false
+local walkFlingActive = false
+local flingIntensity = 50
+
+-- Function to start flying
+local function startFlying()
+    local character = player.Character
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        -- Add BodyVelocity for movement
+        bodyVelocity = Instance.new("BodyVelocity")
+        bodyVelocity.MaxForce = Vector3.new(10000, 10000, 10000)
+        bodyVelocity.Velocity = Vector3.new(0, 0, 0)
+        bodyVelocity.Parent = character.HumanoidRootPart
+        
+        -- Add BodyGyro to keep the character's orientation
+        bodyGyro = Instance.new("BodyGyro")
+        bodyGyro.MaxTorque = Vector3.new(400000, 400000, 400000)
+        bodyGyro.CFrame = character.HumanoidRootPart.CFrame
+        bodyGyro.Parent = character.HumanoidRootPart
+        
+        -- Set the character to fly
+        flying = true
+    end
+end
+
+-- Function to stop flying
+local function stopFlying()
+    if bodyVelocity then
+        bodyVelocity:Destroy()
+        bodyVelocity = nil
+    end
+    if bodyGyro then
+        bodyGyro:Destroy()
+        bodyGyro = nil
+    end
+    flying = false
+end
+
+-- Update flying movement based on mouse position and WASD keys
+local function updateFlight()
+    if flying then
+        local character = player.Character
+        if not character or not character:FindFirstChild("HumanoidRootPart") then return end
+
+        -- Calculate direction based on mouse position
+        local mousePos = game:GetService("Players").LocalPlayer:GetMouse().Hit.p
+        local humanoidRootPart = character.HumanoidRootPart
+        local directionToMouse = (mousePos - humanoidRootPart.Position).unit
+
+        -- Get the player's input for WASD controls
+        local moveDirection = Vector3.new(0, 0, 0)
+        if userInputService:IsKeyDown(Enum.KeyCode.W) then
+            moveDirection = moveDirection + humanoidRootPart.CFrame.LookVector
+        end
+        if userInputService:IsKeyDown(Enum.KeyCode.S) then
+            moveDirection = moveDirection - humanoidRootPart.CFrame.LookVector
+        end
+        if userInputService:IsKeyDown(Enum.KeyCode.A) then
+            moveDirection = moveDirection - humanoidRootPart.CFrame.RightVector
+        end
+        if userInputService:IsKeyDown(Enum.KeyCode.D) then
+            moveDirection = moveDirection + humanoidRootPart.CFrame.RightVector
+        end
+
+        -- Hover mode: Stop upward/downward movement if hover mode is active
+        if hoverMode then
+            moveDirection = Vector3.new(moveDirection.X, 0, moveDirection.Z)
+        end
+
+        -- Speed boost: Increase speed if active
+        local currentSpeed = speedBoostActive and speed * 1.5 or speed
+
+        -- Update velocity based on mouse and WASD input
+        direction = (directionToMouse + moveDirection).unit * currentSpeed
+        bodyVelocity.Velocity = direction
+
+        -- Keep the character upright with BodyGyro
+        bodyGyro.CFrame = CFrame.new(humanoidRootPart.Position, mousePos)
+
+        -- Adjust gravity
+        game:GetService("Workspace").Gravity = gravity
+    end
+end
+
+-- Walk Fling: Vibrate the player very fast
+local function walkFling()
+    local character = player.Character
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        local humanoidRootPart = character.HumanoidRootPart
+        while walkFlingActive do
+            -- Apply random vibrations in all directions
+            local randomDirection = Vector3.new(
+                math.random(-flingIntensity, flingIntensity),
+                math.random(-flingIntensity, flingIntensity),
+                math.random(-flingIntensity, flingIntensity)
+            )
+            bodyVelocity.Velocity = randomDirection
+            wait(0.05)  -- Adjust the speed of the vibration
+        end
+    end
+end
+
+-- Main Tab (Flight Controls)
+local mainSection = mainTab:CreateSection("Flight Controls")
+mainSection:CreateToggle("Enable Fly", function(state)
+    if state then
+        startFlying()
+    else
+        stopFlying()
+    end
+end)
+
+mainSection:CreateToggle("Enable Hover Mode", function(state)
+    hoverMode = state
+end)
+
+mainSection:CreateToggle("Speed Boost", function(state)
+    speedBoostActive = state
+end)
+
+mainSection:CreateSlider("Gravity Control", 10, 200, 196.2, 1, function(value)
+    gravity = value
+end)
+
+mainSection:CreateToggle("Infinite Jump", function(state)
+    local humanoid = player.Character and player.Character:FindFirstChild("Humanoid")
+    if humanoid then
+        humanoid.JumpHeight = state and 50 or 16
+    end
+end)
+
+mainSection:CreateToggle("Walk Fling", function(state)
+    walkFlingActive = state
+    if state then
+        walkFling()  -- Start vibrating the character if Walk Fling is enabled
+    end
+end)
+
+mainSection:CreateSlider("Walk Fling Intensity", 10, 100, 50, 1, function(value)
+    flingIntensity = value
+end)
+
+-- Desert Detectors Tab (Infinite Money Button)
+local desertSection = desertDetectorsTab:CreateSection("Desert Detectors")
+
+desertSection:CreateButton("Enable Infinite Money", function()
+    print("Infinite Money Activated!")
+    
+    _G.GetWins = true
+    while _G.GetWins do
+        wait()
+
+        -- Fire 'Give_Quest' event
+        local args = {
+            [1] = {
+                [1] = "Getting Settled",
+                [2] = {
+                    [1] = {
+                        [1] = 0,
+                        [2] = 0
+                    },
+                    [2] = "Any"
+                },
+                [3] = {
+                    [1] = 9e9
+                },
+                [4] = "Return to Diddy"
+            }
+        }
+
+        game:GetService("ReplicatedStorage"):WaitForChild("Give_Quest"):FireServer(unpack(args))
+
+        -- Fire 'Win_Quest' event
+        local args2 = {
+            [1] = "Getting Settled"
+        }
+
+        game:GetService("ReplicatedStorage"):WaitForChild("Win_Quest"):FireServer(unpack(args2))
+    end
+end)
+
+-- Links Tab (With Buttons for copying URLs)
+local linksSection = linksTab:CreateSection("Links")
+linksSection:CreateButton("Discord Group", function()
+    setclipboard("https://discord.gg/8A6k73JqCM")
+end)
+
+linksSection:CreateButton("YT Channel", function()
+    setclipboard("https://www.youtube.com/@TGMANKASKE")
+end)
+
+linksSection:CreateButton("Tiktok PF", function()
+    setclipboard("https://www.tiktok.com/@kman.rs")
+end)
+
+-- Credits Tab
+local creditsSection = creditsTab:CreateSection("Credits")
+creditsSection:CreateLabel("Credits: TGMANKASKE")
+
+-- Run the flight update loop
+game:GetService("RunService").Heartbeat:Connect(updateFlight)
+
+-- Initialize the window
+window:Initialize()
